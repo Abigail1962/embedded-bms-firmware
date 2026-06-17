@@ -59,3 +59,39 @@ make
 ```bash
 make clean
 ```
+
+---
+
+## 📊 Simulation Demo Output
+
+When you run the compiled binary (`./bms_firmware_sim`), it executes the embedded state machine and outputs real-time peripheral states:
+
+```text
+==================================================================
+     STM32 BARE-METAL BATTERY MANAGEMENT SYSTEM FIRMWARE          
+==================================================================
+
+--- Starting Hardware Event Loop (TIM2 & DMA Polling) ---
+
+[t=0ms] | Relays GPIO-PA5: ON (HIGH) | State: NORMAL | Temp0: 24.5 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x0
+[t=100ms] | Relays GPIO-PA5: ON (HIGH) | State: NORMAL | Temp0: 24.5 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x0
+...
+[t=700ms] | Relays GPIO-PA5: ON (HIGH) | State: NORMAL | Temp0: 24.5 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x0
+
+[SIMULATION EVENT] Injecting Thermal Overtemp Fault (Sensor 0 > 60 C)...
+[t=800ms] | Relays GPIO-PA5: OFF (LOW) | State: FAULT | Temp0: 65.2 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x1
+[t=900ms] | Relays GPIO-PA5: OFF (LOW) | State: FAULT | Temp0: 65.2 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x1
+...
+[t=1700ms] | Relays GPIO-PA5: OFF (LOW) | State: FAULT | Temp0: 65.2 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x1
+
+[SIMULATION EVENT] Clearing active faults. Resetting state to normal...
+[t=1800ms] | Relays GPIO-PA5: ON (HIGH) | State: NORMAL | Temp0: 24.5 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x0
+[t=1900ms] | Relays GPIO-PA5: ON (HIGH) | State: NORMAL | Temp0: 24.5 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x0
+...
+[t=2900ms] | Relays GPIO-PA5: ON (HIGH) | State: NORMAL | Temp0: 24.5 C | Cell5: 3.73 V | Pack V: 44.3 V | Faults: 0x0
+
+==================================================================
+     🟢 SIMULATION COMPLETE: ALL HARDWARE safety loops verified.  
+==================================================================
+```
+
