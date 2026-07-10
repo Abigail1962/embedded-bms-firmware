@@ -2,6 +2,9 @@
 #include <unistd.h>
 #include "bms.h"
 #include "safety_interlock.h"
+#include "can_driver.h"
+#include "pid_controller.h"
+
 // External simulation helpers
 void Simulate_ADC_Conversion(void);
 
@@ -16,12 +19,17 @@ int main(void) {
     I2C_Sensor_Init();
     UART_Init(115200);
     Timer_Init(100); // 100ms (10Hz) safety polling rate
+    CAN_Init();
+
+    PID_Controller_t dc_dc_pid;
+    // kp=0.5, ki=0.1, kd=0.01, target_temp=45.0C, min_current=0A, max_current=150A
+    PID_Init(&dc_dc_pid, 0.5f, 0.1f, 0.01f, 45.0f, 0.0f, 150.0f);
 
     g_bms_data.state = BMS_STATE_NORMAL;
     g_bms_data.active_faults = 0;
 
     System_Log("[BMS-INIT] Bare-metal drivers initialized successfully.");
-    System_Log("[BMS-INIT] CPU configured: ADC + DMA (Circular), TIM2 (10Hz ISR), I2C1 (100kHz), UART1.");
+    System_Log("[BMS-INIT] CPU configured: ADC + DMA, TIM2, I2C1, UART1, CAN1.");
 
     /* --- Real-Time Hardware Event Loop Simulation --- */
     printf("\n--- Starting Hardware Event Loop (TIM2 & DMA Polling) ---\n\n");
@@ -58,7 +66,19 @@ int main(void) {
             g_bms_data.active_faults |= FAULT_OVERVOLTAGE; // Force fault if interlock trips
         }
 
-        // 5. Print System Status Grid
+        // 5. PID Control for DC/DC Charging Current based on max cell temp
+        float max_temp = g_bms_data.temperatures[0]; // Simplified
+        float current_adj = PID_Compute(&dc_dc_pid, max_temp, 0.1f);
+
+        // 6. CAN Telemetry Broadcast
+        CAN_Message_t tlm_msg;
+        tlm_msg.id = 0x2A0; // BMS Telemetry ID
+        tlm_msg.dlc = 8;
+        tlm_msg.data[0] = g_bms_data.state;
+        tlm_msg.data[1] = g_bms_data.active_faults;
+        CAN_Transmit(&tlm_msg);
+
+        // 7. Print System Status Grid
         uint32_t pin_state = (safe_state == RELAY_STATE_CLOSED) ? 1 : 0; // Hardware pin follows safety interlock
         
         printf("[t=%dms] | Relays GPIO-PA5: %s | State: %s | Temp0: %.1f C | Cell5: %.2f V | Pack V: %.1f V | Faults: 0x%X\n", 

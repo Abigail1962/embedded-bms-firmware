@@ -30,6 +30,7 @@ typedef struct {
 #define FAULT_OVERTEMP      (1 << 0)
 #define FAULT_UNDERVOLT     (1 << 1)
 #define FAULT_SENSOR_ERR    (1 << 2)
+#define FAULT_OVERVOLTAGE   (1 << 3)
 
 /* Global variables */
 extern BMS_Data_t g_bms_data;
