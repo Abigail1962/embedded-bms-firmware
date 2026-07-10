@@ -21,6 +21,10 @@ $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
 clean:
-	rm -rf $(OBJ_DIR) $(TARGET)
+	rm -rf $(OBJ_DIR) $(TARGET) test_runner
 
-.PHONY: all clean
+test: $(SRC_DIR)/safety_interlock.c tests/test_safety_interlock.c
+	$(CC) $(CFLAGS) -o test_runner $^
+	./test_runner
+
+.PHONY: all clean test

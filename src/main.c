@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "bms.h"
-
+#include "safety_interlock.h"
 // External simulation helpers
 void Simulate_ADC_Conversion(void);
 
@@ -46,8 +46,20 @@ int main(void) {
         TIM2->SR |= TIM_SR_UIF; // Set update interrupt flag
         TIM2_IRQHandler();
 
-        // 4. Print System Status Grid (representing registers & pin outputs)
-        uint32_t pin_state = (GPIOA->ODR & (1 << 5)) ? 1 : 0; // Check state of PA5
+        // 4. MISRA C Safety Interlock Evaluation
+        // Convert floating point mock voltages to millivolts for the MISRA function
+        uint16_t mv_array[BMS_NUM_CELLS];
+        for (int i=0; i<BMS_NUM_CELLS; i++) {
+            mv_array[i] = (uint16_t)(g_bms_data.cell_voltages[i] * 1000.0);
+        }
+        
+        RelayState_t safe_state = SafetyInterlock_Evaluate(mv_array, BMS_NUM_CELLS);
+        if (safe_state == RELAY_STATE_OPEN) {
+            g_bms_data.active_faults |= FAULT_OVERVOLTAGE; // Force fault if interlock trips
+        }
+
+        // 5. Print System Status Grid
+        uint32_t pin_state = (safe_state == RELAY_STATE_CLOSED) ? 1 : 0; // Hardware pin follows safety interlock
         
         printf("[t=%dms] | Relays GPIO-PA5: %s | State: %s | Temp0: %.1f C | Cell5: %.2f V | Pack V: %.1f V | Faults: 0x%X\n", 
             cycle * 100,
