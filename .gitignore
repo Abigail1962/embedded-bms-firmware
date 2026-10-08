@@ -1,9 +1,6 @@
 bms_firmware_sim
 obj/
 .DS_Store
-linux_i2c_logger/
-vulkan_compute_telemetry/
-train_supervision_engine/
 test_runner
 
 
@@ -18,4 +15,3 @@ __pycache__/
 test_host
 test_threads
 test_memory
-app/sensor_logger
