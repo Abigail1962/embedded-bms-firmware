@@ -27,15 +27,15 @@ void ADC_DMA_Init(uint16_t *dest_buffer, uint32_t buffer_size) {
     }
 
     /* Set peripheral source address (ADC1 Data Register) */
-    DMA2->Stream[0].PAR = (uint32_t)&(ADC1->DR);
+    DMA2->Stream[0].PAR = (uintptr_t)&(ADC1->DR);
 
     /* Set destination memory address (our global array) */
-    DMA2->Stream[0].M0AR = (uint32_t)dest_buffer;
+    DMA2->Stream[0].M0AR = (uintptr_t)dest_buffer;
 
     /* Set number of transfers (12 cell channels) */
     DMA2->Stream[0].NDTR = buffer_size;
 
-    /* Configure CR: 
+    /* Configure CR:
      * - Peripheral & Memory size 16-bit (PSIZE_0, MSIZE_0)
      * - Memory increment enabled (MINC)
      * - Circular mode enabled (CIRC)
@@ -56,17 +56,15 @@ void ADC_DMA_Init(uint16_t *dest_buffer, uint32_t buffer_size) {
  * Automatically updates raw counts and sets the DMA interrupt flag.
  */
 void Simulate_ADC_Conversion(void) {
-    static float time_counter = 0.0f;
-    time_counter += 0.1f;
 
     // Simulate cell voltages converting to 12-bit ADC raw counts (0 - 4095 range, representing 0V - 5.0V)
     // Formula: raw_count = (voltage / 5.0) * 4095
     for (int i = 0; i < NUM_CELLS; i++) {
         // Normal cell voltages around 3.65V, with slight ripple and cell mismatch
         float volt = 3.65f + 0.05f * (i % 3) - 0.02f * (i % 2);
-        
+
         // Simulating low cell voltage fault on cell 5 if flag is set in pack simulation
-        if (g_bms_data.active_faults & FAULT_UNDERVOLT && i == 5) {
+        if (g_sim_undervolt && i == 5) {
             volt = 2.5f; // Drop cell voltage below 2.8V safety limit
         }
 
@@ -91,7 +89,8 @@ void DMA2_Stream0_IRQHandler(void) {
     // Check if Stream 0 Transfer Complete flag is active
     if (DMA2->LISR & (1 << 5)) {
         // Clear interrupt flag
-        DMA2->LIFCR |= (1 << 5);
+        DMA2->LIFCR = (1U << 5);
+        DMA2->LISR &= ~(1U << 5); /* Host model W1C side effect */
 
         // Process DMA values: convert raw ADC counts to actual voltages
         for (int i = 0; i < NUM_CELLS; i++) {

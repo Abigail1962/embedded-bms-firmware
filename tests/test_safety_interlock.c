@@ -1,71 +1,71 @@
+#include <assert.h>
+#include <math.h>
 #include <stdio.h>
-#include "minunit.h"
-#include "../inc/safety_interlock.h"
+#include <string.h>
+#include "bms.h"
+#include "safety_interlock.h"
 
-int tests_run = 0;
-
-static char * test_nominal_voltage() {
-    uint16_t voltages[4] = {3500, 3600, 3550, 3500};
-    mu_assert("error, nominal voltages should return CLOSED", 
-              SafetyInterlock_Evaluate(voltages, 4) == RELAY_STATE_CLOSED);
-    return 0;
-}
-
-static char * test_over_voltage() {
-    uint16_t voltages[4] = {3500, 4300, 3550, 3500}; // Cell 1 is 4.3V (Over BMS_CELL_V_MAX_MV)
-    mu_assert("error, over-voltage should return OPEN", 
-              SafetyInterlock_Evaluate(voltages, 4) == RELAY_STATE_OPEN);
-    return 0;
-}
-
-static char * test_under_voltage() {
-    uint16_t voltages[4] = {3500, 3600, 2400, 3500}; // Cell 2 is 2.4V (Under BMS_CELL_V_MIN_MV)
-    mu_assert("error, under-voltage should return OPEN", 
-              SafetyInterlock_Evaluate(voltages, 4) == RELAY_STATE_OPEN);
-    return 0;
-}
-
-static char * test_mcdc_bounds_checking() {
-    uint16_t voltages[4] = {3500, 3600, 3550, 3500};
-    mu_assert("error, invalid num_cells should return OPEN", 
-              SafetyInterlock_Evaluate(voltages, 3) == RELAY_STATE_OPEN);
-    
-    mu_assert("error, NULL pointer should return OPEN", 
-              SafetyInterlock_Evaluate(0, 4) == RELAY_STATE_OPEN);
-    return 0;
-}
-
-static char * test_latched_fault() {
-    uint16_t voltages_safe[4] = {3500, 3600, 3550, 3500};
-    // Because over_voltage already latched the fault in the static variable, this should STILL return OPEN
-    mu_assert("error, latched fault did not persist", 
-              SafetyInterlock_Evaluate(voltages_safe, 4) == RELAY_STATE_OPEN);
-    return 0;
-}
-
-static char * all_tests() {
-    mu_run_test(test_nominal_voltage);
-    mu_run_test(test_mcdc_bounds_checking);
-    // Order matters because test_over_voltage latches the fault!
-    mu_run_test(test_over_voltage); 
-    mu_run_test(test_under_voltage);
-    mu_run_test(test_latched_fault);
-    return 0;
-}
-
-int main(void) {
-    printf("=========================================\n");
-    printf("  RUNNING MCDC SAFETY INTERLOCK TESTS    \n");
-    printf("=========================================\n");
-    
-    char *result = all_tests();
-    if (result != 0) {
-        printf("❌ TEST FAILED: %s\n", result);
+int main(int argc, char **argv) {
+    assert(argc == 2);
+    uint16_t values[BMS_NUM_CELLS];
+    for (unsigned i = 0; i < BMS_NUM_CELLS; ++i) {
+        values[i] = 3500;
+        g_bms_data.cell_voltages[i] = 3.5f;
     }
-    else {
-        printf("✅ ALL TESTS PASSED\n");
+    g_bms_data.state = BMS_STATE_NORMAL;
+    GPIO_Init_Relays();
+    I2C_Sensor_Init();
+    UART_Init(115200);
+    if (!strcmp(argv[1], "uart")) {
+        char c;
+        assert(RingBuf_Read(NULL) == -1);
+        assert(RingBuf_Read(&c) == -1);
+        for (unsigned i = 0; i < RING_BUF_SIZE - 1; ++i) assert(RingBuf_Write((char)i) == 0);
+        assert(RingBuf_Write('x') == -1);
+        assert(RingBuf_GetCount() == RING_BUF_SIZE - 1);
+        for (unsigned i = 0; i < RING_BUF_SIZE - 1; ++i) {
+            assert(RingBuf_Read(&c) == 0 && (unsigned char)c == (unsigned char)i);
+        }
+        assert(RingBuf_Write('z') == 0 && RingBuf_Read(&c) == 0 && c == 'z');
+        puts("PASS: UART ring overflow, empty and wrap");
+        return 0;
     }
-    printf("Tests run: %d\n", tests_run);
-    
-    return result != 0;
+    if (!strcmp(argv[1], "dma")) {
+        ADC_DMA_Init(g_adc_dma_buffer, NUM_CELLS);
+        assert(DMA2->Stream[0].CR & (1U << 10));
+        assert(DMA2->Stream[0].M0AR == (uintptr_t)g_adc_dma_buffer);
+        DMA2->LISR = 1U << 5;
+        DMA2_Stream0_IRQHandler();
+        assert(!(DMA2->LISR & (1U << 5)));
+        puts("PASS: DMA mock configuration and interrupt clearing");
+        return 0;
+    }
+    if (!strcmp(argv[1], "bounds")) {
+        assert(SafetyInterlock_Evaluate(NULL, BMS_NUM_CELLS) == RELAY_STATE_OPEN);
+        assert(SafetyInterlock_Evaluate(values, BMS_NUM_CELLS - 1) == RELAY_STATE_OPEN);
+        return 0;
+    }
+    if (!strcmp(argv[1], "latch")) {
+        values[11] = 4300;
+        assert(SafetyInterlock_Evaluate(values, BMS_NUM_CELLS) == RELAY_STATE_OPEN);
+        values[11] = 3500;
+        assert(SafetyInterlock_Evaluate(values, BMS_NUM_CELLS) == RELAY_STATE_OPEN);
+        return 0;
+    }
+    if (!strcmp(argv[1], "over")) g_bms_data.cell_voltages[11] = 4.3f;
+    if (!strcmp(argv[1], "under")) g_bms_data.cell_voltages[11] = 2.7f;
+    if (!strcmp(argv[1], "nan")) g_bms_data.cell_voltages[11] = NAN;
+    if (!strcmp(argv[1], "thermal")) g_sim_overtemp = 1;
+    TIM2->SR |= TIM_SR_UIF;
+    TIM2_IRQHandler();
+    if (!strcmp(argv[1], "nominal")) {
+        assert(g_bms_data.state == BMS_STATE_NORMAL);
+        assert(GPIOA->ODR & (1U << 5));
+    } else {
+        assert(g_bms_data.state == BMS_STATE_FAULT);
+        assert(!(GPIOA->ODR & (1U << 5)));
+        assert(g_bms_data.pack_current == 0.0f);
+    }
+    printf("PASS: %s\n", argv[1]);
+    return 0;
 }

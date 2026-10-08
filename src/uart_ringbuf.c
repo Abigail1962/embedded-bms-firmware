@@ -1,5 +1,6 @@
 #include "bms.h"
 #include <stddef.h>
+#include <stdatomic.h>
 
 /* Mock Allocations for USART1 Peripheral */
 static USART_TypeDef mock_usart1;
@@ -7,8 +8,8 @@ USART_TypeDef *USART1 = &mock_usart1;
 
 /* Ring Buffer Globals */
 static char g_ring_buf[RING_BUF_SIZE];
-static volatile uint32_t g_head = 0;
-static volatile uint32_t g_tail = 0;
+static atomic_uint g_head = 0;
+static atomic_uint g_tail = 0;
 
 /**
  * Initialize USART1 peripheral.
@@ -31,7 +32,7 @@ void UART_Init(uint32_t baudrate) {
 
 /**
  * Writes a character into the circular ring buffer.
- * Thread-safe and ISR-safe queue insertion.
+ * Single producer / single consumer host demonstration; not a general thread-safe queue.
  * Returns 0 on success, -1 on buffer overflow.
  */
 int RingBuf_Write(char c) {
@@ -52,6 +53,7 @@ int RingBuf_Write(char c) {
  * Returns 0 on success, -1 on buffer empty.
  */
 int RingBuf_Read(char *c) {
+    if (!c) return -1;
     if (g_head == g_tail) {
         // Buffer is empty
         return -1;
@@ -81,6 +83,7 @@ void USART1_IRQHandler(void) {
 
         // Push received byte into circular queue
         RingBuf_Write(rx_char);
+        USART1->SR &= ~USART_SR_RXNE; /* Host model read side effect */
     }
 }
 

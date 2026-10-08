@@ -15,15 +15,15 @@ typedef struct {
 
 /**
  * @brief Initialize the CAN peripheral (mock hardware registers)
- * 
- * Configures the CAN filter banks for incoming messages and 
+ *
+ * Configures the CAN filter banks for incoming messages and
  * sets up the transmission mailboxes.
  */
 void CAN_Init(void);
 
 /**
  * @brief Broadcasts a CAN message using a hardware mailbox
- * 
+ *
  * @param msg The CAN message to transmit.
  * @return true if mailbox was available and message sent, false otherwise.
  */

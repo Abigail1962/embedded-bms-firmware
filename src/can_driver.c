@@ -26,12 +26,12 @@ void CAN_Init(void) {
     // CAN1->MCR &= ~CAN_MCR_INRQ;
     // while((CAN1->MSR & CAN_MSR_INAK) != 0);
 
-    printf("[CAN_DRIVER] Initialized CAN hardware mailboxes and filter banks.\n");
+    printf("[HOST_CAN_STUB] Initialized; no CAN peripheral or bus active.\n");
     is_can_initialized = true;
 }
 
 bool CAN_Transmit(const CAN_Message_t *msg) {
-    if (!is_can_initialized || msg == NULL) return false;
+    if (!is_can_initialized || msg == NULL || msg->dlc > 8 || msg->id > 0x7FF) return false;
 
     // Mock hardware mailbox selection (TxMailbox 0)
     // if ((CAN1->TSR & CAN_TSR_TME0) == 0) return false; // Mailbox not empty
@@ -42,6 +42,6 @@ bool CAN_Transmit(const CAN_Message_t *msg) {
     // CAN1->sTxMailBox[0].TDHR = ...
     // CAN1->sTxMailBox[0].TIR |= CAN_TI0R_TXRQ; // Request transmission
 
-    printf("[CAN_DRIVER] Transmitting Msg ID: 0x%03X, DLC: %d\n", msg->id, msg->dlc);
+    printf("[HOST_CAN_STUB] Message ID: 0x%03X, DLC: %d (not transmitted)\n", msg->id, msg->dlc);
     return true;
 }

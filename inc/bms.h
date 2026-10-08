@@ -34,6 +34,9 @@ typedef struct {
 
 /* Global variables */
 extern BMS_Data_t g_bms_data;
+/* Host stimulus is independent of detected fault output. */
+extern uint8_t g_sim_overtemp;
+extern uint8_t g_sim_undervolt;
 extern uint16_t g_adc_dma_buffer[NUM_CELLS];
 
 /* API Declarations */

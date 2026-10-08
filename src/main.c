@@ -33,7 +33,7 @@ int main(void) {
 
     /* --- Real-Time Hardware Event Loop Simulation --- */
     printf("\n--- Starting Hardware Event Loop (TIM2 & DMA Polling) ---\n\n");
-    
+
     for (int cycle = 0; cycle < 30; cycle++) {
         // 1. Simulate hardware ADC conversion completing -> triggers DMA ISR
         Simulate_ADC_Conversion();
@@ -41,11 +41,12 @@ int main(void) {
         // 2. Inject Faults at specific time intervals to verify Safety State Machine
         if (cycle == 8) {
             printf("\n[SIMULATION EVENT] Injecting Thermal Overtemp Fault (Sensor 0 > 60 C)...\n");
-            g_bms_data.active_faults |= FAULT_OVERTEMP;
+            g_sim_overtemp = 1;
         }
-        
+
         if (cycle == 18) {
             printf("\n[SIMULATION EVENT] Clearing active faults. Resetting state to normal...\n");
+            g_sim_overtemp = 0;
             g_bms_data.active_faults &= ~FAULT_OVERTEMP;
             g_bms_data.state = BMS_STATE_NORMAL;
         }
@@ -54,24 +55,14 @@ int main(void) {
         TIM2->SR |= TIM_SR_UIF; // Set update interrupt flag
         TIM2_IRQHandler();
 
-        // 4. MISRA C Safety Interlock Evaluation
-        // Convert floating point mock voltages to millivolts for the MISRA function
-        uint16_t mv_array[BMS_NUM_CELLS];
-        for (int i=0; i<BMS_NUM_CELLS; i++) {
-            mv_array[i] = (uint16_t)(g_bms_data.cell_voltages[i] * 1000.0);
-        }
-        
-        RelayState_t safe_state = SafetyInterlock_Evaluate(mv_array, BMS_NUM_CELLS);
-        if (safe_state == RELAY_STATE_OPEN) {
-            g_bms_data.active_faults |= FAULT_OVERVOLTAGE; // Force fault if interlock trips
-        }
-
         // 5. PID Control for DC/DC Charging Current based on max cell temp
         float max_temp = g_bms_data.temperatures[0]; // Simplified
         float current_adj = PID_Compute(&dc_dc_pid, max_temp, 0.1f);
 
+        (void)current_adj; // Demonstration only; no actuator connected.
+
         // 6. CAN Telemetry Broadcast
-        CAN_Message_t tlm_msg;
+        CAN_Message_t tlm_msg = {0};
         tlm_msg.id = 0x2A0; // BMS Telemetry ID
         tlm_msg.dlc = 8;
         tlm_msg.data[0] = g_bms_data.state;
@@ -79,9 +70,9 @@ int main(void) {
         CAN_Transmit(&tlm_msg);
 
         // 7. Print System Status Grid
-        uint32_t pin_state = (safe_state == RELAY_STATE_CLOSED) ? 1 : 0; // Hardware pin follows safety interlock
-        
-        printf("[t=%dms] | Relays GPIO-PA5: %s | State: %s | Temp0: %.1f C | Cell5: %.2f V | Pack V: %.1f V | Faults: 0x%X\n", 
+        uint32_t pin_state = (GPIOA->ODR >> 5) & 1U; // Actual mock GPIO output
+
+        printf("[t=%dms] | Relays GPIO-PA5: %s | State: %s | Temp0: %.1f C | Cell5: %.2f V | Pack V: %.1f V | Faults: 0x%X\n",
             cycle * 100,
             (pin_state ? "ON (HIGH)" : "OFF (LOW)"),
             (g_bms_data.state == BMS_STATE_NORMAL ? "NORMAL" : "FAULT"),
@@ -96,7 +87,7 @@ int main(void) {
     }
 
     printf("\n==================================================================\n");
-    printf("     🟢 SIMULATION COMPLETE: ALL HARDWARE safety loops verified.  \n");
+    printf("     🟢 SIMULATION COMPLETE: HOST SIMULATION COMPLETE; hardware not validated.  \n");
     printf("==================================================================\n");
 
     return 0;

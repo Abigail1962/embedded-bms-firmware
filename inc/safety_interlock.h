@@ -1,6 +1,6 @@
 /**
  * @file safety_interlock.h
- * @brief MISRA C:2012 Compliant Safety Interlock State Machine
+ * @brief Host-simulation Safety Interlock State Machine
  */
 
 #ifndef SAFETY_INTERLOCK_H
@@ -11,10 +11,10 @@
 
 /* Constants representing Safe Operating Area (SOA) limits in millivolts */
 #define BMS_CELL_V_MAX_MV (4200U)
-#define BMS_CELL_V_MIN_MV (2500U)
+#define BMS_CELL_V_MIN_MV (2800U)
 
 /* Number of cells to monitor */
-#define BMS_NUM_CELLS     (4U)
+#define BMS_NUM_CELLS     (12U)
 
 /**
  * @brief Enum for High-Voltage Contactor Relay State
@@ -26,7 +26,7 @@ typedef enum {
 
 /**
  * @brief Evaluates the safety limits and determines the required relay state.
- * 
+ *
  * @param cell_voltages_mv Array of cell voltages in millivolts.
  * @param num_cells The number of elements in the array (must match BMS_NUM_CELLS).
  * @return RelayState_t Returns RELAY_STATE_OPEN on fault, RELAY_STATE_CLOSED if safe.

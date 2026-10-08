@@ -27,8 +27,8 @@ typedef struct {
 typedef struct {
     volatile uint32_t CR;       /* DMA stream x control register */
     volatile uint32_t NDTR;     /* DMA stream x number of data register */
-    volatile uint32_t PAR;      /* DMA stream x peripheral address register */
-    volatile uint32_t M0AR;     /* DMA stream x memory 0 address register */
+    volatile uintptr_t PAR;      /* DMA stream x peripheral address register */
+    volatile uintptr_t M0AR;     /* DMA stream x memory 0 address register */
 } DMA_Stream_TypeDef;
 
 typedef struct {
@@ -86,11 +86,11 @@ extern TIM_TypeDef *TIM2;
 
 #define DMA_SxCR_EN         ((uint32_t)0x00000001)
 #define DMA_SxCR_TCIE       ((uint32_t)0x00000010)
-#define DMA_SxCR_MINC       ((uint32_t)0x00000080)
+#define DMA_SxCR_MINC       ((uint32_t)0x00000400)
 #define DMA_SxCR_CIRC       ((uint32_t)0x00000100)
 #define DMA_SxCR_DIR_0      ((uint32_t)0x00000040) // Memory-to-peripheral
-#define DMA_SxCR_PSIZE_0    ((uint32_t)0x00000100) // 16-bit
-#define DMA_SxCR_MSIZE_0    ((uint32_t)0x00000400) // 16-bit
+#define DMA_SxCR_PSIZE_0    ((uint32_t)0x00000800) // 16-bit
+#define DMA_SxCR_MSIZE_0    ((uint32_t)0x00002000) // 16-bit
 
 #define I2C_CR1_PE          ((uint32_t)0x00000001)
 #define I2C_CR1_START       ((uint32_t)0x00000100)

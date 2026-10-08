@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Iinc -O2
+CFLAGS = -Wall -Wextra -Werror -std=gnu11 -Iinc -O2
 
 SRC_DIR = src
 INC_DIR = inc
@@ -15,7 +15,7 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
@@ -23,8 +23,10 @@ $(OBJ_DIR):
 clean:
 	rm -rf $(OBJ_DIR) $(TARGET) test_runner
 
-test: $(SRC_DIR)/safety_interlock.c tests/test_safety_interlock.c
+test: $(filter-out $(SRC_DIR)/main.c,$(SRCS)) tests/test_safety_interlock.c
 	$(CC) $(CFLAGS) -o test_runner $^
-	./test_runner
+	@for scenario in nominal bounds over under latch nan thermal uart dma; do ./test_runner $$scenario || exit 1; done
 
 .PHONY: all clean test
+
+-include $(OBJS:.o=.d)
